@@ -1,0 +1,216 @@
+<html>
+<head>
+
+</head>
+<body>
+
+<section id="todo">
+
+</section>
+
+
+<script>
+    const Task = class {
+        constructor(){
+            this._list = [];
+        }
+        add (task) {
+            this._list.push(task);
+        }
+        remove(task) {
+            const l = this._list;
+            debugger;
+            if (l.includes(task)) l.splice(l.indexOf(task), 1);
+        }
+        getResult(sort, state){
+            const l = this._list;
+
+            let result = state
+                ? [l.filter(v => !v.isComplete()), l.filter(v => v.isComplete())].reduce((p, c) => p.concat(c.sort(sort)), [])
+        : [...l].sort(sort);
+
+            return {
+                item: this._getResult(),
+                children: result.map(v => v.getResult(sort, state))
+        };
+        }
+        _getResult(){
+            throw 'must be overrided';
+        }
+    };
+    const TaskItem = class extends Task{
+        static title(a, b) {
+            return a.sortTitle(b);
+        }
+        static date(a, b) {
+            return a.sortDate(b);
+        }
+        static register(a, b) {
+            return a.sortRegister(b);
+        }
+        constructor(title) {
+            super();
+            this._title = title;
+            this._date = Date.now();
+            this._isComplete = false;
+        }
+        get title(){
+            return this._title;
+        }
+        get date() {
+            return this._date.toString();
+        }
+        _getResult(){
+            return this;
+        }
+        isComplete() {
+            return this._isComplete;
+        }
+
+        toggle() {
+            this._isComplete = !this._isComplete;
+        }
+        sortTitle(task) {
+            return this._title > task._title;
+        }
+        sortDate(task) {
+            return this._date > task._date;
+        }
+        sortRegister() {
+            return true;
+        }
+    };
+    const TaskList = class extends Task {
+        constructor(title) {
+            super();
+            this._title = title;
+        }
+        add(title) {
+            super.add(new TaskItem(title));
+        }
+        remove(task) {
+            super.remove(task);
+        }
+
+        byTitle(state = false) {
+            return this.getResult(TaskItem.title, state);
+        }
+
+        byRegister(state = false) {
+            return this.getResult(TaskItem.register, state);
+        }
+
+        byDate(state = false) {
+            return this.getResult(TaskItem.date, state);
+        }
+        _getResult(){
+            return this._title;
+        }
+    };
+    const Dr = class {
+        static el(type, ...attr) {
+        const el = document.createElement(type);
+
+        for (let i = 0; i < attr.length;) {
+        const k = attr[i++], v = attr[i++];
+
+        if (typeof el[k] === 'function') el[k].apply(el, Array.isArray(v) ? v : [v]);
+        else if(k[0] === '@') el.style[k.substr(1)] = v;
+        else el[k] = v;
+    }
+    return el;
+    }
+    constructor(taskList, parent){
+        this._list = taskList;
+        this._parent = parent;
+        this._sort = 'register';
+    }
+    sort(s){
+        this._sort = s;
+        this.render();
+    }
+    add(title){
+        this._list.add(title);
+        this.render();
+    }
+    remove(taskItem){
+        this._list.remove(taskItem);
+        this.render();
+    }
+    toggle(taskItem){
+        taskItem.toggle();
+        this.render();
+    }
+    addSubTask(task, title){
+        task.add(new TaskItem(title)), this.render();
+    }
+    removeSubTask(parent, task){
+        parent.remove(task), this.render();
+    }
+
+    render(){//todo throw
+        const parent = document.querySelector(this._parent);
+        const data = this._list.getResult(this._sort, true);
+        parent.innerHTML = '';
+
+        [
+            Dr.el('h2', 'innerHTML', data.item),
+            'regist,title,date'.split(',').reduce((p, c) => {
+                p.appendChild(Dr.el('button', 'innerHTML', c,
+                'addEventListener', ['click', e=>this.sort(c)]));
+        return p;
+    }, Dr.el('nav')),
+        Dr.el('section',
+            'appendChild', Dr.el('input', 'type', 'text'),
+            'appendChild', Dr.el('button',
+                'innerHTML', 'add task',
+                'addEventListener', [
+                'click', e => this.add(e.target.previousSibling.value)
+    ])
+    ),
+        data.children.reduce((p, {item, children}) => {
+
+            p.appendChild([
+            Dr.el('h3', 'innerHTML', item.title,
+                '@textDecoration', item.isComplete() ? 'line-through' : 'none'
+            ),
+            Dr.el('time', 'innerHTML', item.date,
+                'dateTime', item.date
+            ),
+            Dr.el('button', 'innerHTML', item.isComplete() ? 'progress' : 'complete',
+                'addEventListener', [
+                'click', e => this.toggle(item)
+        ]),
+            Dr.el('button', 'innerHTML', 'remove',
+                'addEventListener', [
+                'click', e => this.remove(item)
+    ]
+    ),
+        Dr.el('section',
+            'appendChild', Dr.el('input', 'type', 'text'),
+            'appendChild', Dr.el('button',
+                'innerHTML', 'add sub task',
+                'addEventListener', [
+                'click', e => this.addSubTask(item, e.target.previousSibling.value)
+    ])
+    ),
+        children.reduce((p, {item, children}) => (p.appendChild(Dr.el('li', 'innerHTML', item.title)), p), Dr.el('ul'))
+    ].reduce((p, c) => (p.appendChild(c), p), Dr.el('section')));
+        return p;
+    }, Dr.el('section'))
+    ].reduce((p, c) => (p.appendChild(c), p), parent);
+    }
+    };
+
+    const todo = new Dr(new TaskList('list1'), '#todo');
+
+    todo.render();
+
+</script>
+</body>
+</html>
+
+
+
+
+
